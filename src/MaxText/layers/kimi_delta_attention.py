@@ -103,7 +103,6 @@ def chunk_parallel_delta_attention(
       idx = jnp.arange(chunk_size)
       
       # [STRICT MASK] Stage 2: i > j (Strict Lower)
-      # Matches PyTorch triu(0) masked_fill 0
       mask = idx[:, None] > idx[None, :] 
       decay_mask = jnp.where(jnp.expand_dims(mask, -1), decay_full, 0.0)
       
@@ -112,7 +111,6 @@ def chunk_parallel_delta_attention(
       # [BETA ROW]
       A = A_raw * jnp.expand_dims(beta_blk, -1)
       
-      # [INVERT] Matches PyTorch logic A = -A then closure
       A_neg = -A
       
       def invert_body(i, m):
@@ -125,7 +123,6 @@ def chunk_parallel_delta_attention(
 
       A_inv = jax.lax.fori_loop(1, chunk_size, invert_body, A_neg)
       
-      # [BETA COL] Matches PyTorch (A_inv + I) * beta_col
       T = A_inv + jnp.eye(chunk_size)
       T_final = T * jnp.expand_dims(beta_blk, -2) 
       
@@ -168,7 +165,6 @@ def chunk_parallel_delta_attention(
       idx = jnp.arange(chunk_size)
       
       # [INCLUSIVE MASK] Stage 3: i >= j (Lower + Diagonal)
-      # Matches PyTorch triu(1) masked_fill 0
       mask = idx[:, None] >= idx[None, :] 
       g_rel = jnp.where(jnp.expand_dims(mask, -1), decay_full, 0.0)
       
@@ -184,7 +180,6 @@ def chunk_parallel_delta_attention(
       decay_last = jnp.exp(g_i[..., -1, :])
       S_decayed = prev_state * jnp.expand_dims(decay_last, -1)
       
-      # k_tail: Matches PyTorch exp(G_end - G_cur)
       k_tail = k_i * jnp.exp(jnp.expand_dims(g_i[..., -1, :], -2) - g_i)
       update_term = jnp.matmul(jnp.swapaxes(k_tail, -1, -2), v_new, precision=prec)
       
